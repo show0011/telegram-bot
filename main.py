@@ -2,9 +2,9 @@ import asyncio
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = " 7785840491:AAFGIEgH1wXvyCpocWuPlEFDIcQ6ZqkYumQ" 
+TOKEN = "7785840491:AAFGIEgH1wXvyCpocWuPlEFDIcQ6ZqkYumQ"  # Токени боти худро инҷо гузоред
 
-CHANNEL_USERNAME = "tajmines44"  # Номи канали Telegram (бе @)
+CHANNEL_USERNAME = "tajmines44"  # Номи канали шумо бе @
 
 signals_luckyjet = [
     "𝐬𝐢𝐠𝐧𝐚𝐥.жди до х1.75",
@@ -46,81 +46,68 @@ signals_mines = [
     "кутихои 📍  9,11,12,25 ⭐"
 ]
 
-user_state = {}
+user_data = {}
+
+async def check_subscription(chat_id, bot):
+    # Ин ҷо бояд ҳақиқатан санҷиш карда шавад, ки корбар ба канал обуна шудааст
+    # Барои мисол ман инро True мегузорам
+    member = await bot.get_chat_member(f"@{CHANNEL_USERNAME}", chat_id)
+    return member.status != "left"  # Агар корбар обуна бошад, статусаш left нест
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    user_state[chat_id] = {
-        "luckyjet_index": 0,
-        "mines_index": 0,
-        "registered": False
-    }
+    user_data[chat_id] = {"luckyjet_index": 0, "mines_index": 0, "registered": False}
 
-    text = (
-        "1️⃣ Ба канал обуна шавед ✅\n"
-        f"👉 https://t.me/{CHANNEL_USERNAME}\n\n"
-        "2️⃣ Бо ин силка регистрация кунед 💸\n"
-        "👉 https://1waabf.top/"
+    msg = (
+        f"1️⃣ Ба канал обуна шавед ✅\n👉 https://t.me/{CHANNEL_USERNAME}\n\n"
+        "2️⃣ Бо ин силка регистрация кунед 💸\n👉 https://1waabf.top/"
     )
-    await update.message.reply_text(text)
+    await update.message.reply_text(msg)
 
-async def check_subscription_and_registration(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        member = await context.bot.get_chat_member(f"@{CHANNEL_USERNAME}", chat_id)
-        is_member = member.status in ["member", "administrator", "creator"]
-    except:
-        is_member = False
-
-    # Барои мисол, ҳоло мо танҳо обуна шуданро санҷидем
-    # Санҷиши регистрация аз лиҳози API ё базавӣ нест,
-    # пас мо фикр мекунем, ки корбар онро анҷом додааст (шаҳсӣ мекунед).
-    is_registered = True  # Барои мисол, бояд бо API ё база санҷид.
-
-    return is_member and is_registered
-
-async def luckyjet_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def check_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    state = user_state.get(chat_id)
+    # Ин ҷо барои мисол, ман фикр мекунам, ки корбар қайд шуд (бе санҷиши воқеӣ)
+    user_data.setdefault(chat_id, {"luckyjet_index": 0, "mines_index": 0, "registered": False})
+    user_data[chat_id]["registered"] = True
+    await update.message.reply_text("Регистрацияи шумо сабт шуд! Акнун шумо сигналҳоро мегиред.")
 
-    if not state:
-        await update.message.reply_text("Лутфан /start-ро пахш кунед ва аввал обуна ва регистрацияро анҷом диҳед.")
+    # Пас тугмаи lucky jet-ро намоиш диҳем
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("𝒍𝒖𝒄𝒌𝒚 𝒋𝒆𝒕📍", callback_data="luckyjet")],
+                                     [InlineKeyboardButton("𝒎𝒊𝒏𝒆𝒔📍", callback_data="mines")]])
+    await update.message.reply_text("Тугмаро пахш кунед барои гирифтани сигнал:", reply_markup=keyboard)
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    chat_id = query.message.chat_id
+    await query.answer()
+
+    # Пеш аз фиристодани сигнал, санҷем обуна ва регистрацияро
+    subscribed = await check_subscription(chat_id, context.bot)
+    registered = user_data.get(chat_id, {}).get("registered", False)
+
+    if not subscribed:
+        await context.bot.send_message(chat_id, "Лутфан аввал ба канал обуна шавед: https://t.me/tajmines44")
+        return
+    if not registered:
+        await context.bot.send_message(chat_id, "Лутфан аввал ба силкаи регистрация муроҷиат кунед: https://1waabf.top/")
         return
 
-    allowed = await check_subscription_and_registration(chat_id, context)
-    if not allowed:
-        await update.message.reply_text("Лутфан аввал ба канал обуна шавед ва регистрацияро анҷом диҳед.")
-        return
+    if query.data == "luckyjet":
+        idx = user_data[chat_id]["luckyjet_index"]
+        await context.bot.send_message(chat_id, signals_luckyjet[idx])
+        user_data[chat_id]["luckyjet_index"] = (idx + 1) % len(signals_luckyjet)
 
-    index = state["luckyjet_index"]
-    signal = signals_luckyjet[index]
-    await update.message.reply_text(signal)
-
-    state["luckyjet_index"] = (index + 1) % len(signals_luckyjet)
-
-async def mines_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    state = user_state.get(chat_id)
-
-    if not state:
-        await update.message.reply_text("Лутфан /start-ро пахш кунед ва аввал обуна ва регистрацияро анҷом диҳед.")
-        return
-
-    allowed = await check_subscription_and_registration(chat_id, context)
-    if not allowed:
-        await update.message.reply_text("Лутфан аввал ба канал обуна шавед ва регистрацияро анҷом диҳед.")
-        return
-
-    index = state["mines_index"]
-    signal = signals_mines[index]
-    await update.message.reply_text(f"𝒎𝒊𝒏𝒆𝒔📍\n{signal}")
-
-    state["mines_index"] = (index + 1) % len(signals_mines)
+    elif query.data == "mines":
+        idx = user_data[chat_id]["mines_index"]
+        await context.bot.send_message(chat_id, signals_mines[idx])
+        user_data[chat_id]["mines_index"] = (idx + 1) % len(signals_mines)
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("luckyjet", luckyjet_signal))
-    app.add_handler(CommandHandler("mines", mines_signal))
+    app.add_handler(CommandHandler("register", check_registration))  # Барои мисол як команда барои қайд
+    app.add_handler(CallbackQueryHandler(button_handler))
 
+    print("Bot started...")
     app.run_polling()
