@@ -49,8 +49,6 @@ signals_mines = [
 user_data = {}
 
 async def check_subscription(chat_id, bot):
-    # Ин ҷо бояд ҳақиқатан санҷиш карда шавад, ки корбар ба канал обуна шудааст
-    # Барои мисол ман инро True мегузорам
     member = await bot.get_chat_member(f"@{CHANNEL_USERNAME}", chat_id)
     return member.status != "left"  # Агар корбар обуна бошад, статусаш left нест
 
@@ -66,14 +64,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def check_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    # Ин ҷо барои мисол, ман фикр мекунам, ки корбар қайд шуд (бе санҷиши воқеӣ)
     user_data.setdefault(chat_id, {"luckyjet_index": 0, "mines_index": 0, "registered": False})
     user_data[chat_id]["registered"] = True
     await update.message.reply_text("Регистрацияи шумо сабт шуд! Акнун шумо сигналҳоро мегиред.")
 
-    # Пас тугмаи lucky jet-ро намоиш диҳем
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("𝒍𝒖𝒄𝒌𝒚 𝒋𝒆𝒕📍", callback_data="luckyjet")],
-                                     [InlineKeyboardButton("𝒎𝒊𝒏𝒆𝒔📍", callback_data="mines")]])
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("𝒍𝒖𝒄𝒌𝒚 𝒋𝒆𝒕📍", callback_data="luckyjet")],
+        [InlineKeyboardButton("𝒎𝒊𝒏𝒆𝒔📍", callback_data="mines")]
+    ])
     await update.message.reply_text("Тугмаро пахш кунед барои гирифтани сигнал:", reply_markup=keyboard)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -81,12 +79,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = query.message.chat_id
     await query.answer()
 
-    # Пеш аз фиристодани сигнал, санҷем обуна ва регистрацияро
     subscribed = await check_subscription(chat_id, context.bot)
     registered = user_data.get(chat_id, {}).get("registered", False)
 
     if not subscribed:
-        await context.bot.send_message(chat_id, "Лутфан аввал ба канал обуна шавед: https://t.me/tajmines44")
+        await context.bot.send_message(chat_id, f"Лутфан аввал ба канал обуна шавед: https://t.me/{CHANNEL_USERNAME}")
         return
     if not registered:
         await context.bot.send_message(chat_id, "Лутфан аввал ба силкаи регистрация муроҷиат кунед: https://1waabf.top/")
@@ -106,7 +103,7 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("register", check_registration))  # Барои мисол як команда барои қайд
+    app.add_handler(CommandHandler("register", check_registration))
     app.add_handler(CallbackQueryHandler(button_handler))
 
     print("Bot started...")
