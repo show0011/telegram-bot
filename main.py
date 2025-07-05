@@ -2,7 +2,7 @@ import asyncio
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = "7785840491:AAFGIEgH1wXvyCpocWuPlEFDIcQ6ZqkYumQ"  # Токени боти худро инҷо гузоред
+TOKEN = "7785840491:AAFGIEgH1wXvyCpocWuPlEFDIcQ6ZqkYumQ"  # Инҷо токени ботро гузоред
 
 CHANNEL_USERNAME = "tajmines44"  # Номи канали шумо бе @
 
@@ -49,8 +49,12 @@ signals_mines = [
 user_data = {}
 
 async def check_subscription(chat_id, bot):
-    member = await bot.get_chat_member(f"@{CHANNEL_USERNAME}", chat_id)
-    return member.status != "left"  # Агар корбар обуна бошад, статусаш left нест
+    try:
+        member = await bot.get_chat_member(f"@{CHANNEL_USERNAME}", chat_id)
+        return member.status not in ["left", "kicked"]
+    except Exception as e:
+        print(f"Error checking subscription: {e}")
+        return False
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -58,43 +62,46 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = (
         f"1️⃣ Ба канал обуна шавед ✅\n👉 https://t.me/{CHANNEL_USERNAME}\n\n"
-        "2️⃣ Бо ин силка регистрация кунед 💸\n👉 https://1waabf.top/"
+        "2️⃣ Бо ин силка регистрация кунед 💸\n👉 https://1waabf.top/\n\n"
+        "Пас аз анҷоми ин ду амал тугмаро зер кунед."
     )
-    await update.message.reply_text(msg)
-
-async def check_registration(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    user_data.setdefault(chat_id, {"luckyjet_index": 0, "mines_index": 0, "registered": False})
-    user_data[chat_id]["registered"] = True
-    await update.message.reply_text("Регистрацияи шумо сабт шуд! Акнун шумо сигналҳоро мегиред.")
-
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("𝒍𝒖𝒄𝒌𝒚 𝒋𝒆𝒕📍", callback_data="luckyjet")],
-        [InlineKeyboardButton("𝒎𝒊𝒏𝒆𝒔📍", callback_data="mines")]
+        [InlineKeyboardButton("МАН БА КАНАЛ ОБУНА ШУДАМ✅", callback_data="check_subscription")]
     ])
-    await update.message.reply_text("Тугмаро пахш кунед барои гирифтани сигнал:", reply_markup=keyboard)
+    await update.message.reply_text(msg, reply_markup=keyboard)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     chat_id = query.message.chat_id
     await query.answer()
 
-    subscribed = await check_subscription(chat_id, context.bot)
-    registered = user_data.get(chat_id, {}).get("registered", False)
+    if query.data == "check_subscription":
+        subscribed = await check_subscription(chat_id, context.bot)
+        if not subscribed:
+            await context.bot.send_message(chat_id, f"Лутфан аввал ба канал обуна шавед: https://t.me/{CHANNEL_USERNAME}")
+            return
+        # Агар обуна бошад, ҳисоб мекунем, ки корбар сабти ном шудааст (registration)
+        user_data.setdefault(chat_id, {"luckyjet_index": 0, "mines_index": 0, "registered": False})
+        user_data[chat_id]["registered"] = True
 
-    if not subscribed:
-        await context.bot.send_message(chat_id, f"Лутфан аввал ба канал обуна шавед: https://t.me/{CHANNEL_USERNAME}")
-        return
-    if not registered:
-        await context.bot.send_message(chat_id, "Лутфан аввал ба силкаи регистрация муроҷиат кунед: https://1waabf.top/")
-        return
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("𝒍𝒖𝒄𝒌𝒚 𝒋𝒆𝒕📍", callback_data="luckyjet")],
+            [InlineKeyboardButton("𝒎𝒊𝒏𝒆𝒔📍", callback_data="mines")]
+        ])
+        await context.bot.send_message(chat_id, "Шумо обуна шудед ва регистрация кардед! Тугмаро интихоб кунед барои гирифтани сигналҳо:", reply_markup=keyboard)
 
-    if query.data == "luckyjet":
+    elif query.data == "luckyjet":
+        if not user_data.get(chat_id, {}).get("registered", False):
+            await context.bot.send_message(chat_id, "Лутфан аввал ба силкаи регистрация муроҷиат кунед: https://1waabf.top/")
+            return
         idx = user_data[chat_id]["luckyjet_index"]
         await context.bot.send_message(chat_id, signals_luckyjet[idx])
         user_data[chat_id]["luckyjet_index"] = (idx + 1) % len(signals_luckyjet)
 
     elif query.data == "mines":
+        if not user_data.get(chat_id, {}).get("registered", False):
+            await context.bot.send_message(chat_id, "Лутфан аввал ба силкаи регистрация муроҷиат кунед: https://1waabf.top/")
+            return
         idx = user_data[chat_id]["mines_index"]
         await context.bot.send_message(chat_id, signals_mines[idx])
         user_data[chat_id]["mines_index"] = (idx + 1) % len(signals_mines)
@@ -103,7 +110,6 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("register", check_registration))
     app.add_handler(CallbackQueryHandler(button_handler))
 
     print("Bot started...")
