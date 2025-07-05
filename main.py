@@ -2,7 +2,7 @@ import asyncio
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = " 7785840491:AAFGIEgH1wXvyCpocWuPlEFDIcQ6ZqkYumQ" # ← Токени худро дар ин ҷо гузор
+TOKEN = "7785840491:AAFGIEgH1wXvyCpocWuPlEFDIcQ6ZqkYumQ"
 
 signals = [
     "𝐬𝐢𝐠𝐧𝐚𝐥.жди до х1.75",
